@@ -122,6 +122,93 @@
         function hideResult() {
             document.getElementById('resultBox').classList.add('hidden');
         }
+
+        <script>
+    // ======= 请确保这里填对了 =======
+    const SB_URL = "https://dhfbpzphsmsxfwsehuiv.supabase.co"; 
+    const SB_KEY = "sb_publishable_dRoHsGiruL3iH2pHEW-xoQ_ayujmNWw";
+    // =============================
+
+    // 初始化检查
+    if (SB_URL.includes("你的_")) {
+        alert("错误：你还没有在代码里填入 Supabase 的 URL 和 Key！");
+    }
+
+    const supabase = supabase.createClient(SB_URL, SB_KEY);
+
+    async function handleCheck() {
+        const input = document.getElementById('phoneInput');
+        const btn = document.getElementById('mainBtn');
+        const val = input.value.trim();
+
+        if (!val) {
+            alert("请输入有效号码");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "正在检索系统...";
+        document.getElementById('resultBox').classList.add('hidden');
+
+        try {
+            console.log("正在连接数据库查询:", val);
+
+            // 1. 查询
+            const { data, error: queryErr } = await supabase
+                .from('benz_check_system')
+                .select('customer_phone')
+                .eq('customer_phone', val)
+                .maybeSingle();
+
+            if (queryErr) {
+                // 如果这里报错，通常是表名不对或权限(RLS)没开
+                alert("数据库查询失败: " + queryErr.message);
+                throw queryErr;
+            }
+
+            if (data) {
+                showResult("fail", "导入失败", "客户号码已存在于总群库中");
+            } else {
+                // 2. 插入
+                const { error: insErr } = await supabase
+                    .from('benz_check_system')
+                    .insert([{ customer_phone: val }]);
+
+                if (insErr) {
+                    alert("数据录入失败: " + insErr.message);
+                    throw insErr;
+                }
+
+                showResult("success", "导入成功", "号码已录入数据库，无重复");
+                input.value = ""; 
+            }
+        } catch (err) {
+            console.error("详细错误信息:", err);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "立即核验并录入";
+        }
+    }
+
+    function showResult(type, title, desc) {
+        const box = document.getElementById('resultBox');
+        const rTitle = document.getElementById('resultTitle');
+        const rDesc = document.getElementById('resultDesc');
+        const rIcon = document.getElementById('resultIcon');
+
+        box.classList.remove('hidden');
+        rTitle.innerText = title;
+        rDesc.innerText = desc;
+
+        if (type === 'success') {
+            box.className = "mt-6 rounded-2xl p-4 text-center bg-green-900/30 text-green-400 border border-green-500/50";
+            rIcon.innerText = "✓";
+        } else {
+            box.className = "mt-6 rounded-2xl p-4 text-center bg-red-900/30 text-red-400 border border-red-500/50";
+            rIcon.innerText = "✕";
+        }
+    }
+</script>
     </script>
 </body>
 </html>
