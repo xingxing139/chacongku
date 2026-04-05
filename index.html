@@ -90,6 +90,42 @@
             statusBox.className = `mt-8 p-5 rounded-2xl flex items-center justify-center text-center font-bold ${className}`;
             statusBox.classList.remove('hidden');
         }
+
+        async function processNumber() {
+    const val = document.getElementById('phoneInput').value.trim();
+    if (!val) return;
+
+    console.log("正在尝试处理号码:", val); // 调试日志
+
+    // 1. 查重
+    const { data, error: selectError } = await supabase
+        .from('public_check')
+        .select('phone_number')
+        .eq('phone_number', val)
+        .maybeSingle();
+
+    if (selectError) {
+        console.error("查询出错:", selectError);
+        return alert("查询失败，请检查配置");
+    }
+
+    if (data) {
+        alert("⚠️ 号码重复！该号之前已登记过。");
+    } else {
+        // 2. 存入
+        const { error: insertError } = await supabase
+            .from('public_check')
+            .insert([{ phone_number: val }]);
+
+        if (insertError) {
+            console.error("插入出错:", insertError);
+            alert("登记失败: " + insertError.message);
+        } else {
+            alert("✅ 登记成功！已存入云端数据库。");
+            document.getElementById('phoneInput').value = ""; // 成功后清空
+        }
+    }
+}
     </script>
 </body>
 </html>
