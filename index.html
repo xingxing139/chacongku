@@ -50,55 +50,70 @@
 
     <p class="mt-10 text-gray-600 text-xs">© 2026 奔驰总群内部管理系统 · 隐私加密存储</p>
 
-  <script>
-    
+ <script>
+    /**
+     * 核心逻辑：安全核验并录入 (V2.0 增强版)
+     * 包含功能：频率限制处理、验证码校验、密钥隐藏
+     */
     async function handleCheckAction() {
-        const input = document.getElementById('phoneInput');
+        const phoneInput = document.getElementById('phoneInput');
+        const verifyInput = document.getElementById('verifyInput'); // 获取验证码框
         const btn = document.getElementById('mainBtn');
-        const val = input.value.trim();
+
+        const phoneVal = phoneInput.value.trim();
+        const verifyVal = verifyInput ? verifyInput.value.trim() : "";
 
         // 1. 基础校验
-        if (!val) {
+        if (!phoneVal) {
             alert("请输入有效号码");
+            return;
+        }
+        if (!verifyVal) {
+            alert("请输入安全验证码");
             return;
         }
 
         // 2. 界面进入加载状态
         btn.disabled = true;
-        btn.innerText = "安全检索中...";
+        btn.innerText = "多重安全核验中...";
         hideResult();
 
         try {
-            // 3. 请求后端接口 (Vercel 会自动处理 /api/check 路径)
+            // 3. 请求后端接口
             const response = await fetch('/api/check', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ phone: val })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    phone: phoneVal,
+                    verifyCode: verifyVal 
+                })
             });
 
-            // 检查服务器响应状态
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || "服务器响应异常");
+            // 特殊处理：频率限制 (429 Too Many Requests)
+            if (response.status === 429) {
+                alert("⚠️ 操作太快了！为防止恶意刷票，请休息 1 分钟再试。");
+                return;
             }
 
             const result = await response.json();
 
-            // 4. 根据后端结果显示 UI
-            if (result.status === 'exists') {
-                showResult("fail", "导入失败", "该客户号码已存在于总群数据库中");
-            } else if (result.status === 'success') {
-                showResult("success", "导入成功", "已通过核验并录入内部管理系统");
-                input.value = ""; // 成功后清空
+            // 4. 根据返回结果显示 UI
+            if (response.ok) {
+                if (result.status === 'exists') {
+                    showResult("fail", "导入失败", "该客户号码已存在于总群数据库中");
+                } else if (result.status === 'success') {
+                    showResult("success", "导入成功", "已通过核验并录入内部管理系统");
+                    phoneInput.value = ""; 
+                    if (verifyInput) verifyInput.value = ""; // 成功后清空验证码
+                }
             } else {
-                alert("系统提示: " + (result.error || "未知响应格式"));
+                // 处理验证码错误等逻辑
+                alert("系统提示: " + (result.error || "请求异常"));
             }
 
         } catch (err) {
-            console.error("网络或接口错误:", err);
-            alert("网络连接失败，请检查后端 API 是否部署成功");
+            console.error("网络错误:", err);
+            alert("网络连接失败，请稍后再试");
         } finally {
             // 5. 恢复按钮状态
             btn.disabled = false;
@@ -107,7 +122,7 @@
     }
 
     /**
-     * UI 显示函数：展示结果卡片
+     * UI 显示函数
      */
     function showResult(type, title, desc) {
         const box = document.getElementById('resultBox');
@@ -115,42 +130,40 @@
         const rDesc = document.getElementById('resultDesc');
         const rIcon = document.getElementById('resultIcon');
 
-        // 显示盒子
         box.classList.remove('hidden');
         rTitle.innerText = title;
         rDesc.innerText = desc;
 
-        // 根据类型切换颜色和图标
         if (type === 'success') {
-            // 成功样式：绿色
             box.className = "mt-6 rounded-2xl p-4 text-center bg-green-900/30 text-green-400 border border-green-500/50 transform transition-all";
             rIcon.innerText = "✓";
         } else {
-            // 失败样式：红色
             box.className = "mt-6 rounded-2xl p-4 text-center bg-red-900/30 text-red-400 border border-red-500/50 transform transition-all";
             rIcon.innerText = "✕";
         }
     }
 
-    /**
-     * 辅助函数：隐藏结果卡片
-     */
     function hideResult() {
         const box = document.getElementById('resultBox');
         if (box) box.classList.add('hidden');
     }
 
-    // 绑定回车键快捷查询
-    document.getElementById('phoneInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            handleCheckAction();
-        }
+    // 绑定事件
+    document.getElementById('mainBtn').addEventListener('click', handleCheckAction);
+    
+    document.getElementById('phoneInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleCheckAction();
     });
 
-    // 绑定按钮点击
-    document.getElementById('mainBtn').addEventListener('click', handleCheckAction);
+    // 如果你有验证码框，也支持回车触发
+    const vInput = document.getElementById('verifyInput');
+    if (vInput) {
+        vInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleCheckAction();
+        });
+    }
 
-    console.log("✅ 奔驰总群前端安全引擎已就绪，已切换至隐藏密钥模式");
+    console.log("🛡️ 安全加固版引擎已就绪：已启用频率限制与验证码核查");
 </script>
 </body>
 </html>
