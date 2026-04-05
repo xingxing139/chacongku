@@ -56,22 +56,28 @@
 
     <p class="mt-10 text-gray-600 text-xs">© 2026 奔驰总群内部管理系统 · 隐私加密存储</p>
 
- <script>
+<script>
     /**
-     * 核心逻辑：安全核验并录入 (V2.0 增强版)
-     * 包含功能：频率限制处理、验证码校验、密钥隐藏
+     * 核心逻辑：安全核验并录入 (V3.0 追踪增强版)
+     * 包含功能：录入人身份登记、频率限制、验证码校验、密钥隐藏
      */
     async function handleCheckAction() {
         const phoneInput = document.getElementById('phoneInput');
-        const verifyInput = document.getElementById('verifyInput'); // 获取验证码框
+        const verifyInput = document.getElementById('verifyInput');
+        const operatorInput = document.getElementById('operatorInput'); // 获取录入人输入框
         const btn = document.getElementById('mainBtn');
 
         const phoneVal = phoneInput.value.trim();
         const verifyVal = verifyInput ? verifyInput.value.trim() : "";
+        const operatorVal = operatorInput ? operatorInput.value.trim() : ""; // 录入人姓名
 
         // 1. 基础校验
         if (!phoneVal) {
             alert("请输入有效号码");
+            return;
+        }
+        if (!operatorVal) {
+            alert("请输入您的姓名（录入人）");
             return;
         }
         if (!verifyVal) {
@@ -81,7 +87,7 @@
 
         // 2. 界面进入加载状态
         btn.disabled = true;
-        btn.innerText = "多重安全核验中...";
+        btn.innerText = "正在存证并核验...";
         hideResult();
 
         try {
@@ -91,11 +97,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     phone: phoneVal,
-                    verifyCode: verifyVal 
+                    verifyCode: verifyVal,
+                    operator: operatorVal // 将姓名传给后端
                 })
             });
 
-            // 特殊处理：频率限制 (429 Too Many Requests)
+            // 处理：频率限制 (429 Too Many Requests)
             if (response.status === 429) {
                 alert("⚠️ 操作太快了！为防止恶意刷票，请休息 1 分钟再试。");
                 return;
@@ -108,12 +115,12 @@
                 if (result.status === 'exists') {
                     showResult("fail", "导入失败", "该客户号码已存在于总群数据库中");
                 } else if (result.status === 'success') {
-                    showResult("success", "导入成功", "已通过核验并录入内部管理系统");
+                    showResult("success", "导入成功", `核验通过！录入人：${operatorVal}`);
                     phoneInput.value = ""; 
-                    if (verifyInput) verifyInput.value = ""; // 成功后清空验证码
+                    // 提示：验证码和录入人姓名不强制清空，方便连续录入多个号码
                 }
             } else {
-                // 处理验证码错误等逻辑
+                // 处理验证码错误、缺少参数等逻辑
                 alert("系统提示: " + (result.error || "请求异常"));
             }
 
@@ -154,22 +161,31 @@
         if (box) box.classList.add('hidden');
     }
 
-    // 绑定事件
+    // --- 事件绑定区域 ---
+
+    // 1. 提交按钮点击
     document.getElementById('mainBtn').addEventListener('click', handleCheckAction);
     
+    // 2. 号码框回车
     document.getElementById('phoneInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleCheckAction();
     });
 
-    // 如果你有验证码框，也支持回车触发
-    const vInput = document.getElementById('verifyInput');
-    if (vInput) {
-        vInput.addEventListener('keypress', (e) => {
+    // 3. 验证码框回车
+    if (verifyInput) {
+        verifyInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleCheckAction();
         });
     }
 
-    console.log("🛡️ 安全加固版引擎已就绪：已启用频率限制与验证码核查");
+    // 4. 录入人框回车
+    if (operatorInput) {
+        operatorInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleCheckAction();
+        });
+    }
+
+    console.log("🛡️ 安全加固 V3.0 已就绪：已开启录入人身份存证功能");
 </script>
 </body>
 </html>
