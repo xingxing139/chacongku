@@ -1,80 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>号码查重系统</title>
+    <title>自动登记查重系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .btn-active:active { transform: scale(0.98); }
+        .loading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen p-4 flex flex-col items-center">
+<body class="bg-gray-50 flex flex-col items-center p-6">
 
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 mt-10">
-        <h1 class="text-xl font-bold text-gray-800 mb-2">共享查重登记库</h1>
-        <p class="text-sm text-gray-500 mb-6">输入任何号码，系统将自动检查是否重复</p>
+    <div class="max-w-md w-full bg-white shadow-2xl rounded-3xl p-8 mt-12">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">号码自动登记库</h2>
+        <p class="text-gray-500 text-sm mb-8">输入后自动保存，下次输入将提示重复。</p>
 
-        <input type="text" id="phone" placeholder="请输入手机号/ID/工号" 
-               class="w-full text-lg p-4 border-2 border-gray-100 rounded-xl mb-4 focus:border-blue-500 focus:outline-none transition-all">
+        <div class="space-y-4">
+            <input type="text" id="phoneInput" placeholder="请输入号码（不限长度）" 
+                   class="w-full border-2 border-gray-100 rounded-2xl p-4 text-lg focus:border-indigo-500 outline-none transition-all">
+            
+            <button onclick="processNumber()" id="mainBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg">
+                检查并自动保存
+            </button>
+        </div>
 
-        <button onclick="startCheck()" id="btn"
-                class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg btn-active transition-all">
-            开始核对并登记
-        </button>
-
-        <div id="result" class="mt-6 hidden p-4 rounded-xl text-center font-medium"></div>
+        <div id="statusBox" class="mt-8 p-5 rounded-2xl hidden flex items-center justify-center text-center font-bold">
+            <span id="statusText"></span>
+        </div>
     </div>
 
     <script>
-        // 配置你的 Supabase 信息
-        const SB_URL = "你的_SUPABASE_URL";
-        const SB_KEY = "你的_ANON_KEY";
-        const supabase = supabase.createClient(SB_URL, SB_KEY);
+        // 1. 配置你的 Supabase 钥匙
+        const SUPABASE_URL = "你的_SUPABASE_URL"; 
+        const SUPABASE_KEY = "你的_ANON_KEY";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        async function startCheck() {
-            const input = document.getElementById('phone').value.trim();
-            const resBox = document.getElementById('result');
-            const btn = document.getElementById('btn');
+        async function processNumber() {
+            const inputField = document.getElementById('phoneInput');
+            const btn = document.getElementById('mainBtn');
+            const statusBox = document.getElementById('statusBox');
+            const statusText = document.getElementById('statusText');
+            
+            const val = inputField.value.trim();
+            if (!val) return alert("请输入内容");
 
-            if (!input) return;
-
-            // 按钮加载动画
-            btn.innerText = "正在核对...";
+            // 按钮状态切换
             btn.disabled = true;
+            btn.innerText = "正在同步数据库...";
+            statusBox.classList.add('hidden');
 
-            // 1. 查询是否存在
-            const { data, error } = await supabase
-                .from('public_check')
-                .select('phone_number')
-                .eq('phone_number', input)
-                .maybeSingle();
+            try {
+                // 【核心逻辑 A】：先查重
+                const { data, error } = await supabase
+                    .from('public_check') // 确保你在Supabase里建的表名叫这个
+                    .select('phone_number')
+                    .eq('phone_number', val)
+                    .maybeSingle();
 
-            if (data) {
-                // 重复了
-                showResult("⚠️ 重复！该号码已在库中", "bg-red-50 text-red-600 border border-red-200");
-            } else {
-                // 未重复，尝试登记
-                const { error: insErr } = await supabase
-                    .from('public_check')
-                    .insert([{ phone_number: input }]);
-                
-                if (!insErr) {
-                    showResult("✅ 登记成功！库中无此号", "bg-green-50 text-green-600 border border-green-200");
+                if (data) {
+                    // 如果查到了，说明以前存过
+                    showUI("⚠️ 该号码已存在！", "bg-orange-100 text-orange-700 border-2 border-orange-200");
                 } else {
-                    showResult("系统忙，请重试", "bg-gray-50 text-gray-600");
+                    // 【核心逻辑 B】：如果没查到，立即自动保存
+                    const { error: insertError } = await supabase
+                        .from('public_check')
+                        .insert([{ phone_number: val }]);
+
+                    if (insertError) throw insertError;
+
+                    showUI("✅ 登记成功！已存入数据库", "bg-green-100 text-green-700 border-2 border-green-200");
+                    inputField.value = ""; // 清空输入框方便下一次输入
                 }
+            } catch (err) {
+                console.error(err);
+                showUI("❌ 数据库连接失败", "bg-red-100 text-red-700");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "检查并自动保存";
             }
-            btn.innerText = "开始核对并登记";
-            btn.disabled = false;
         }
 
-        function showResult(txt, cls) {
-            const resBox = document.getElementById('result');
-            resBox.innerText = txt;
-            resBox.className = "mt-6 p-4 rounded-xl text-center font-medium " + cls;
-            resBox.classList.remove('hidden');
+        function showUI(text, className) {
+            const statusBox = document.getElementById('statusBox');
+            const statusText = document.getElementById('statusText');
+            statusText.innerText = text;
+            statusBox.className = `mt-8 p-5 rounded-2xl flex items-center justify-center text-center font-bold ${className}`;
+            statusBox.classList.remove('hidden');
         }
     </script>
 </body>
