@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户查重系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+
+    <div class="bg-white p-8 rounded-lg shadow-md w-96">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">用户查重/登记</h1>
+        
+        <div class="space-y-4">
+            <input type="text" id="phoneInput" placeholder="输入手机号（不限长度）" 
+                   class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+            
+            <button onclick="handleCheck()" 
+                    class="w-full bg-blue-600 text-white p-3 rounded font-semibold hover:bg-blue-700 transition">
+                检查并提交
+            </button>
+        </div>
+
+        <div id="message" class="mt-4 p-3 rounded hidden"></div>
+    </div>
+
+    <script>
+        // --- 配置区 ---
+        // 在 Supabase 项目设置 -> API 中找这两个值
+        const SUPABASE_URL = '你的SUPABASE_URL';
+        const SUPABASE_KEY = '你的SUPABASE_ANON_KEY';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function handleCheck() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            const messageBox = document.getElementById('message');
+
+            if (!phone) return alert("请输入号码");
+
+            // 1. 查询数据库是否存在该手机号
+            const { data, error } = await supabase
+                .from('users')
+                .select('phone')
+                .eq('phone', phone)
+                .maybeSingle();
+
+            if (data) {
+                // 2. 存在重复
+                showMessage("该号码已存在，请勿重复操作！", "bg-red-100 text-red-700");
+            } else {
+                // 3. 不存在，执行插入
+                const { error: insertError } = await supabase
+                    .from('users')
+                    .insert([{ phone: phone }]);
+
+                if (insertError) {
+                    showMessage("系统错误: " + insertError.message, "bg-gray-100 text-gray-700");
+                } else {
+                    showMessage("登记成功！这是新号码。", "bg-green-100 text-green-700");
+                }
+            }
+        }
+
+        function showMessage(text, classes) {
+            const msg = document.getElementById('message');
+            msg.innerText = text;
+            msg.className = `mt-4 p-3 rounded ${classes}`;
+            msg.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
