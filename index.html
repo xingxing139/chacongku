@@ -1,131 +1,127 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>自动登记查重系统</title>
+    <title>奔驰总群系统查重库</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .loading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        body { background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%); min-height: 100vh; font-family: "Microsoft YaHei", sans-serif; }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .benz-btn { background: linear-gradient(90deg, #0078d4, #005a9e); transition: all 0.3s ease; }
+        .benz-btn:active { transform: scale(0.95); opacity: 0.8; }
     </style>
 </head>
-<body class="bg-gray-50 flex flex-col items-center p-6">
+<body class="flex flex-col items-center justify-center p-4">
 
-    <div class="max-w-md w-full bg-white shadow-2xl rounded-3xl p-8 mt-12">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">号码自动登记库</h2>
-        <p class="text-gray-500 text-sm mb-8">输入后自动保存，下次输入将提示重复。</p>
+    <div class="mb-8 text-center">
+        <div class="inline-block p-4 rounded-full border-2 border-gray-400 mb-4">
+            <div class="w-12 h-12 flex items-center justify-center text-white font-bold text-2xl">⭐</div>
+        </div>
+        <h1 class="text-white text-3xl font-light tracking-widest">奔驰总群系统查重库</h1>
+        <p class="text-gray-400 mt-2 text-sm uppercase tracking-tighter">Mercedes-Benz Member Verification System</p>
+    </div>
 
-        <div class="space-y-4">
-            <input type="text" id="phoneInput" placeholder="请输入号码（不限长度）" 
-                   class="w-full border-2 border-gray-100 rounded-2xl p-4 text-lg focus:border-indigo-500 outline-none transition-all">
-            
-            <button onclick="processNumber()" id="mainBtn"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg">
-                检查并自动保存
-            </button>
+    <div class="w-full max-w-md glass-card rounded-3xl p-8 shadow-2xl">
+        <div class="mb-6">
+            <label class="block text-gray-400 text-xs mb-2 ml-1">请输入客户号码</label>
+            <input type="text" id="phoneInput" placeholder="输入手机号或识别码" 
+                   class="w-full bg-transparent border-b-2 border-gray-600 text-white text-xl py-3 px-1 focus:border-blue-500 outline-none transition-all">
         </div>
 
-        <div id="statusBox" class="mt-8 p-5 rounded-2xl hidden flex items-center justify-center text-center font-bold">
-            <span id="statusText"></span>
+        <button onclick="handleCheck()" id="mainBtn"
+                class="w-full benz-btn text-white font-semibold py-4 rounded-xl shadow-lg text-lg tracking-wider mb-4">
+            立即核验并录入
+        </button>
+
+        <div id="resultBox" class="hidden rounded-2xl p-4 text-center transform transition-all animate-pulse">
+            <div id="resultIcon" class="text-3xl mb-1"></div>
+            <div id="resultTitle" class="font-bold text-lg"></div>
+            <div id="resultDesc" class="text-sm opacity-80 mt-1"></div>
         </div>
     </div>
 
+    <p class="mt-10 text-gray-600 text-xs">© 2026 奔驰总群内部管理系统 · 隐私加密存储</p>
+
     <script>
-        // 1. 配置你的 Supabase 钥匙
-        const SUPABASE_URL = "你的_SUPABASE_URL"; 
-        const SUPABASE_KEY = "你的_ANON_KEY";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // ======= 配置区域 =======
+        const SB_URL = "https://dhfbpzphsmsxfwsehuiv.supabase.co"; 
+        const SB_KEY = "sb_publishable_dRoHsGiruL3iH2pHEW-xoQ_ayujmNWw";
+        // =======================
 
-        async function processNumber() {
-            const inputField = document.getElementById('phoneInput');
+        const supabase = supabase.createClient(SB_URL, SB_KEY);
+
+        async function handleCheck() {
+            const input = document.getElementById('phoneInput');
             const btn = document.getElementById('mainBtn');
-            const statusBox = document.getElementById('statusBox');
-            const statusText = document.getElementById('statusText');
-            
-            const val = inputField.value.trim();
-            if (!val) return alert("请输入内容");
+            const val = input.value.trim();
 
-            // 按钮状态切换
+            if (!val) return alert("请输入有效号码");
+
+            // UI 锁定
             btn.disabled = true;
-            btn.innerText = "正在同步数据库...";
-            statusBox.classList.add('hidden');
+            btn.innerText = "正在检索系统...";
+            hideResult();
 
             try {
-                // 【核心逻辑 A】：先查重
-                const { data, error } = await supabase
-                    .from('public_check') // 确保你在Supabase里建的表名叫这个
-                    .select('phone_number')
-                    .eq('phone_number', val)
+                // 1. 第一步：在库中搜索
+                const { data, error: queryErr } = await supabase
+                    .from('benz_check_system')
+                    .select('customer_phone')
+                    .eq('customer_phone', val)
                     .maybeSingle();
 
+                if (queryErr) throw queryErr;
+
                 if (data) {
-                    // 如果查到了，说明以前存过
-                    showUI("⚠️ 该号码已存在！", "bg-orange-100 text-orange-700 border-2 border-orange-200");
+                    // 2. 第二步：如果存在 -> 报错
+                    showResult("fail", "导入失败", "客户号码已存在于总群库中");
                 } else {
-                    // 【核心逻辑 B】：如果没查到，立即自动保存
-                    const { error: insertError } = await supabase
-                        .from('public_check')
-                        .insert([{ phone_number: val }]);
+                    // 3. 第三步：如果不存在 -> 自动录入
+                    const { error: insErr } = await supabase
+                        .from('benz_check_system')
+                        .insert([{ customer_phone: val }]);
 
-                    if (insertError) throw insertError;
+                    if (insErr) throw insErr;
 
-                    showUI("✅ 登记成功！已存入数据库", "bg-green-100 text-green-700 border-2 border-green-200");
-                    inputField.value = ""; // 清空输入框方便下一次输入
+                    showResult("success", "导入成功", "号码已录入数据库，无重复");
+                    input.value = ""; // 录入成功清空
                 }
             } catch (err) {
                 console.error(err);
-                showUI("❌ 数据库连接失败", "bg-red-100 text-red-700");
+                showResult("error", "系统异常", "请检查网络或联系管理员");
             } finally {
                 btn.disabled = false;
-                btn.innerText = "检查并自动保存";
+                btn.innerText = "立即核验并录入";
             }
         }
 
-        function showUI(text, className) {
-            const statusBox = document.getElementById('statusBox');
-            const statusText = document.getElementById('statusText');
-            statusText.innerText = text;
-            statusBox.className = `mt-8 p-5 rounded-2xl flex items-center justify-center text-center font-bold ${className}`;
-            statusBox.classList.remove('hidden');
+        function showResult(type, title, desc) {
+            const box = document.getElementById('resultBox');
+            const rTitle = document.getElementById('resultTitle');
+            const rDesc = document.getElementById('resultDesc');
+            const rIcon = document.getElementById('resultIcon');
+
+            box.classList.remove('hidden');
+            rTitle.innerText = title;
+            rDesc.innerText = desc;
+
+            if (type === 'success') {
+                box.className = "mt-6 rounded-2xl p-4 text-center bg-green-900/30 text-green-400 border border-green-500/50";
+                rIcon.innerText = "✓";
+            } else if (type === 'fail') {
+                box.className = "mt-6 rounded-2xl p-4 text-center bg-red-900/30 text-red-400 border border-red-500/50";
+                rIcon.innerText = "✕";
+            } else {
+                box.className = "mt-6 rounded-2xl p-4 text-center bg-gray-800 text-white";
+                rIcon.innerText = "!";
+            }
         }
 
-        async function processNumber() {
-    const val = document.getElementById('phoneInput').value.trim();
-    if (!val) return;
-
-    console.log("正在尝试处理号码:", val); // 调试日志
-
-    // 1. 查重
-    const { data, error: selectError } = await supabase
-        .from('public_check')
-        .select('phone_number')
-        .eq('phone_number', val)
-        .maybeSingle();
-
-    if (selectError) {
-        console.error("查询出错:", selectError);
-        return alert("查询失败，请检查配置");
-    }
-
-    if (data) {
-        alert("⚠️ 号码重复！该号之前已登记过。");
-    } else {
-        // 2. 存入
-        const { error: insertError } = await supabase
-            .from('public_check')
-            .insert([{ phone_number: val }]);
-
-        if (insertError) {
-            console.error("插入出错:", insertError);
-            alert("登记失败: " + insertError.message);
-        } else {
-            alert("✅ 登记成功！已存入云端数据库。");
-            document.getElementById('phoneInput').value = ""; // 成功后清空
+        function hideResult() {
+            document.getElementById('resultBox').classList.add('hidden');
         }
-    }
-}
     </script>
 </body>
 </html>
