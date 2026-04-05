@@ -45,96 +45,28 @@
     <p class="mt-10 text-gray-600 text-xs">© 2026 奔驰总群内部管理系统 · 隐私加密存储</p>
 
     <script>
-        // ======= 配置区域 =======
-        const SB_URL = "https://dhfbpzphsmsxfwsehuiv.supabase.co"; 
-        const SB_KEY = "sb_publishable_dRoHsGiruL3iH2pHEW-xoQ_ayujmNWw";
-        // =======================
-
-        const supabase = supabase.createClient(SB_URL, SB_KEY);
-
-        async function handleCheck() {
-            const input = document.getElementById('phoneInput');
-            const btn = document.getElementById('mainBtn');
-            const val = input.value.trim();
-
-            if (!val) return alert("请输入有效号码");
-
-            // UI 锁定
-            btn.disabled = true;
-            btn.innerText = "正在检索系统...";
-            hideResult();
-
-            try {
-                // 1. 第一步：在库中搜索
-                const { data, error: queryErr } = await supabase
-                    .from('benz_check_system')
-                    .select('customer_phone')
-                    .eq('customer_phone', val)
-                    .maybeSingle();
-
-                if (queryErr) throw queryErr;
-
-                if (data) {
-                    // 2. 第二步：如果存在 -> 报错
-                    showResult("fail", "导入失败", "客户号码已存在于总群库中");
-                } else {
-                    // 3. 第三步：如果不存在 -> 自动录入
-                    const { error: insErr } = await supabase
-                        .from('benz_check_system')
-                        .insert([{ customer_phone: val }]);
-
-                    if (insErr) throw insErr;
-
-                    showResult("success", "导入成功", "号码已录入数据库，无重复");
-                    input.value = ""; // 录入成功清空
-                }
-            } catch (err) {
-                console.error(err);
-                showResult("error", "系统异常", "请检查网络或联系管理员");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "立即核验并录入";
-            }
-        }
-
-        function showResult(type, title, desc) {
-            const box = document.getElementById('resultBox');
-            const rTitle = document.getElementById('resultTitle');
-            const rDesc = document.getElementById('resultDesc');
-            const rIcon = document.getElementById('resultIcon');
-
-            box.classList.remove('hidden');
-            rTitle.innerText = title;
-            rDesc.innerText = desc;
-
-            if (type === 'success') {
-                box.className = "mt-6 rounded-2xl p-4 text-center bg-green-900/30 text-green-400 border border-green-500/50";
-                rIcon.innerText = "✓";
-            } else if (type === 'fail') {
-                box.className = "mt-6 rounded-2xl p-4 text-center bg-red-900/30 text-red-400 border border-red-500/50";
-                rIcon.innerText = "✕";
-            } else {
-                box.className = "mt-6 rounded-2xl p-4 text-center bg-gray-800 text-white";
-                rIcon.innerText = "!";
-            }
-        }
-
-        function hideResult() {
-            document.getElementById('resultBox').classList.add('hidden');
-        }
-
-        <script>
-    // ======= 请确保这里填对了 =======
+    // ======= ⚠️ 核心配置：请确保填入了正确的值 =======
     const SB_URL = "https://dhfbpzphsmsxfwsehuiv.supabase.co"; 
     const SB_KEY = "sb_publishable_dRoHsGiruL3iH2pHEW-xoQ_ayujmNWw";
-    // =============================
+    // =============================================
 
-    // 初始化检查
-    if (SB_URL.includes("你的_")) {
-        alert("错误：你还没有在代码里填入 Supabase 的 URL 和 Key！");
-    }
+    let _db;
 
-    const supabase = supabase.createClient(SB_URL, SB_KEY);
+    // 页面加载完成后立即初始化
+    window.onload = () => {
+        try {
+            // 初始化 Supabase 客户端
+            _db = supabase.createClient(SB_URL, SB_KEY);
+            console.log("✅ 奔驰总群系统：数据库连接已就绪");
+            
+            // 绑定按钮点击事件（这种方式比在 HTML 里写 onclick 更稳）
+            const btn = document.getElementById('mainBtn');
+            btn.addEventListener('click', handleCheck);
+        } catch (e) {
+            console.error("❌ 初始化失败:", e);
+            alert("系统初始化失败，请检查配置是否完整！");
+        }
+    };
 
     async function handleCheck() {
         const input = document.getElementById('phoneInput');
@@ -146,45 +78,41 @@
             return;
         }
 
+        // 1. 禁用按钮，防止连点
         btn.disabled = true;
-        btn.innerText = "正在检索系统...";
-        document.getElementById('resultBox').classList.add('hidden');
+        btn.innerText = "正在核验中...";
+        hideResult();
 
         try {
-            console.log("正在连接数据库查询:", val);
-
-            // 1. 查询
-            const { data, error: queryErr } = await supabase
+            // 2. 执行查询 (注意：表名必须是 benz_check_system)
+            const { data, error: queryErr } = await _db
                 .from('benz_check_system')
                 .select('customer_phone')
                 .eq('customer_phone', val)
                 .maybeSingle();
 
-            if (queryErr) {
-                // 如果这里报错，通常是表名不对或权限(RLS)没开
-                alert("数据库查询失败: " + queryErr.message);
-                throw queryErr;
-            }
+            if (queryErr) throw queryErr;
 
             if (data) {
+                // 3. 号码已存在
                 showResult("fail", "导入失败", "客户号码已存在于总群库中");
             } else {
-                // 2. 插入
-                const { error: insErr } = await supabase
+                // 4. 号码不存在，立即自动保存
+                const { error: insErr } = await _db
                     .from('benz_check_system')
                     .insert([{ customer_phone: val }]);
 
-                if (insErr) {
-                    alert("数据录入失败: " + insErr.message);
-                    throw insErr;
-                }
+                if (insErr) throw insErr;
 
-                showResult("success", "导入成功", "号码已录入数据库，无重复");
-                input.value = ""; 
+                showResult("success", "导入成功", "已通过核验并录入数据库");
+                input.value = ""; // 成功后清空输入框
             }
         } catch (err) {
-            console.error("详细错误信息:", err);
+            console.error("操作异常:", err);
+            // 这里会直接告诉你为什么失败，比如表不存在或权限没开
+            alert("系统提示: " + (err.message || "连接超时，请重试"));
         } finally {
+            // 5. 恢复按钮
             btn.disabled = false;
             btn.innerText = "立即核验并录入";
         }
@@ -208,7 +136,10 @@
             rIcon.innerText = "✕";
         }
     }
-</script>
+
+    function hideResult() {
+        document.getElementById('resultBox').classList.add('hidden');
+    }
     </script>
 </body>
 </html>
